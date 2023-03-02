@@ -5,6 +5,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
+st.set_page_config(layout='wide', initial_sidebar_state='expanded')
+
 EjDeltaRatio=1
 Chi=0.1
 RecoveryRate=0.5
