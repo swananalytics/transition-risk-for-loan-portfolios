@@ -13,7 +13,7 @@ RecoveryRate=0.5
 year0=2010
 
 header = st.container()
-dataset = st.container()
+MarketShares = st.container()
 shocks = st.container()
 loanvalue = st.container()
 
@@ -103,39 +103,43 @@ with header:
     st.title('Transition risk for a loan portfolio - Climate stress test')
     #st.text('')
 
-with dataset:
-    st.header('Market shares today')
-    st.subheader('Chart showing the market sector of different primary energy sources')
-    st.markdown('* **This graph:** shows the marketshare of each energy sector in year '+str(year0) )
-    InitialMarketSharesPlot = sns.catplot(data=UnpivotedInitialMarketSharesDataFrame, y='variable',x='value', kind='bar',hue='region', height=5, aspect=12/5 )
-    st.pyplot(InitialMarketSharesPlot)
-    #st.bar_chart(data=UnpivotedInitialMarketSharesDataFrame,x='sectors', y='sectors share today')
+with MarketShares:
+    st.header('Market shares of primary energy sources')
     
+    MarketSharesCol1, MarketSharesCol2, MarketSharesCol3 = st.columns([1,2,2])
+    MarketSharesCol1.markdown('* **Select your variables** ')
+    TheRegion = MarketSharesCol1.selectbox('Choose the region:', options=dffp['region'].unique())
+    TheScenario= MarketSharesCol1.selectbox('Choose the region:', options=dffp['scenario'].unique())
+    TheSector=MarketSharesCol1.selectbox("Choose Sector for which you want to  plot the shocks:", options=['Biomass', 'Coal','Gas','Geothermal','Hydro','Solar','Wind', 'Nuclear', 'Oil'])
+    Chi = 0.01*MarketSharesCol1.slider('Chi as a percentage', min_value=0, max_value=10, value=100, step=10)
 
+    MarketSharesCol2.markdown('* **This graph:** shows the projections of market shares of primary energy sorces for the coming years for the selected regions and scenarios ')
+    StackedMarketSharesPlot = dffp[(dffp['region'] == TheRegion) & (dffp['scenario'] == TheScenario)][sectors_columns].plot.area()
+    StackedMarketSharesPlot.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+    StackedMarketSharesPlot.set_ylabel('Energy consuption EJ/yr')
+    StackedMarketSharesPlot.set_xlabel('Year')
+    StackedMarketSharesPlot.set_title(str(TheRegion)+' - '+str(TheScenario))
+    MarketSharesCol2.pyplot(StackedMarketSharesPlot.figure)
+    
+    MarketSharesCol3.markdown('* **This graph:** shows the marketshare of each energy sector in year '+str(year0) )
+    InitialMarketSharesPlot = sns.catplot(data=UnpivotedInitialMarketSharesDataFrame, y='variable',x='value', kind='bar',hue='region', aspect=8/5)
+    InitialMarketSharesPlot.set_axis_labels('Energy consuption EJ/yr', '')
+    MarketSharesCol3.pyplot(InitialMarketSharesPlot)
+    
+    
+    
+    
 
 with shocks:
-    st.header('The shocks')
-    sel_col, disp_col = st.columns(2)
-   
     
-    The_sector=sel_col.selectbox("Choose Sector for which you want to  plot the shocks:", options=['Biomass', 'Coal','Gas','Geothermal','Hydro','Solar','Wind', 'Nuclear', 'Oil'])
-    
-    The_region = disp_col.selectbox('Choose the region:', options=dffp['region'].unique())
-    
-    
-    SchocksPlot = sns.relplot(data=dffp[dffp['region']==The_region], kind='line', x='year', y='Shocks'+The_sector, hue='scenario', height=5, aspect=8/5)
-    st.pyplot(SchocksPlot)
+    SchocksCol1, SchocksCol2, SchocksCol3 = st.columns(3)
 
-    sel_col.text('Here are the models in the dataset:')
-    The_country=sel_col.write(dffp['model'].unique())
-
+    SchocksCol1.header('The shocks')
     
+    SchocksPlot = sns.relplot(data=dffp[dffp['region']==TheRegion], kind='line', x='year', y='Shocks'+TheSector, hue='scenario', height=5, aspect=8/5)
+    SchocksCol1.pyplot(SchocksPlot)
 
-with loanvalue:
-    sel_col2, disp_col2 = st.columns(2)
-    st.header('Simulation for the value of a loan')
-    st.text('Choose your portfolio')
-    Chi = 0.01*sel_col2.slider('Chi as a percentage', min_value=0, max_value=10, value=100, step=10)
+    SchocksCol2.text('Choose your portfolio')
 
     FaceValuesOfLoans1=[1000,100000,1000,2000,2000,2000,100,100,1000]
     FaceValuesOfLoans2={'Sectors':sectors, 'Face Values of Loans':FaceValuesOfLoans1}
@@ -151,6 +155,8 @@ with loanvalue:
     ChangeInValueOfLoans=pd.DataFrame(ChangeInValueOfLoans2)
     ChangeInValueOfLoans['New value of loans']=ChangeInValueOfLoans['Change in value of loans']+FaceValuesOfLoans['Face Values of Loans'].sum()
 
-
-    LoanValueSimulation=sns.relplot(data=ChangeInValueOfLoans, kind='line', x='year', y='New value of loans', hue='scenario', col='region', height=5, aspect=8/5)
-    st.pyplot(LoanValueSimulation)
+    
+    SchocksCol3.header('Simulation for the value of a loan')
+    
+    LoanValueSimulation=sns.relplot(data=ChangeInValueOfLoans[ChangeInValueOfLoans['region']==TheRegion], kind='line', x='year', y='New value of loans', hue='scenario', col='region', height=5, aspect=8/5)
+    SchocksCol3.pyplot(LoanValueSimulation)
