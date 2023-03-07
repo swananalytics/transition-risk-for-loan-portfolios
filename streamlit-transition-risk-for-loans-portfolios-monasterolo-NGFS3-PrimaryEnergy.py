@@ -11,10 +11,11 @@ EjDeltaRatio=1
 Chi=0.1
 RecoveryRate=0.5
 year0=2010
+InitProbDefault=0.2 #determines the maximum that the loan value can gain in case of a positive shock
 
-header = st.container()
-MarketShares = st.container()
-shocks = st.container()
+Row1 = st.container()
+Row2 = st.container()
+Row3 = st.container()
 loanvalue = st.container()
 
 @st.cache_data
@@ -56,6 +57,7 @@ sectors=['Biomass', 'Coal','Gas','Geothermal','Hydro', 'Nuclear', 'Oil','Solar',
 MarketShareSectorsColumns=['MarketShare'+sectors[i] for i in range(len(sectors))]
 InitialMarketShareSectorsColumns=['Initial'+MarketShareSectorsColumns[i] for i in range(len(sectors))]
 ShocksSectorsColumns=['Shocks'+sectors[i] for i in range(len(sectors))]
+NewValueOfLoanSectorsColumns=['NewValueLoan'+sectors[i] for i in range(len(sectors))]
 
 
 # add a new column for the total primary energy, as the sum of the different primary energy of all the sectors
@@ -99,55 +101,69 @@ ShocksMatrix=dffp[['scenario','year', 'region']+ShocksSectorsColumns]
 
 
 
-with header:
+with Row1:
     st.title('Transition risk for a loan portfolio - Climate stress test')
     #st.text('')
 
-with MarketShares:
+with Row2:
     st.header('Market shares of primary energy sources')
     
-    MarketSharesCol1, MarketSharesCol2, MarketSharesCol3 = st.columns([1,2,2])
-    MarketSharesCol1.markdown('* **Select your variables** ')
-    TheRegion = MarketSharesCol1.selectbox('Choose the region:', options=dffp['region'].unique())
-    TheScenario= MarketSharesCol1.selectbox('Choose the region:', options=dffp['scenario'].unique())
-    TheSector=MarketSharesCol1.selectbox("Choose Sector for which you want to  plot the shocks:", options=['Biomass', 'Coal','Gas','Geothermal','Hydro','Solar','Wind', 'Nuclear', 'Oil'])
-    Chi = 0.01*MarketSharesCol1.slider('Chi as a percentage', min_value=0, max_value=10, value=100, step=10)
+    Row2Col1, Row2Col2, Row2Col3 = st.columns([1,2,2])
+    Row2Col1.markdown('* **Select your variables** ')
+    TheRegion = Row2Col1.selectbox('Choose the region:', options=dffp['region'].unique())
+    TheScenario= Row2Col1.selectbox('Choose the region:', options=dffp['scenario'].unique())
+    TheSector=Row2Col1.selectbox("Choose Sector for which you want to  plot the shocks:", options=['Biomass', 'Coal','Gas','Geothermal','Hydro','Solar','Wind', 'Nuclear', 'Oil'])
+    Chi = 0.01*Row2Col1.slider('Chi as a percentage', min_value=0, max_value=100, value=100, step=10)
 
-    MarketSharesCol2.markdown('* **This graph:** shows the projections of market shares of primary energy sorces for the coming years for the selected regions and scenarios ')
+    Row2Col2.markdown('* **This graph:** shows the projections of market shares of primary energy sorces for the coming years for the selected regions and scenarios ')
     StackedMarketSharesPlot = dffp[(dffp['region'] == TheRegion) & (dffp['scenario'] == TheScenario)][sectors_columns].plot.area()
     StackedMarketSharesPlot.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
     StackedMarketSharesPlot.set_ylabel('Energy consuption EJ/yr')
     StackedMarketSharesPlot.set_xlabel('Year')
     StackedMarketSharesPlot.set_title(str(TheRegion)+' - '+str(TheScenario))
-    MarketSharesCol2.pyplot(StackedMarketSharesPlot.figure)
+    Row2Col2.pyplot(StackedMarketSharesPlot.figure)
     
-    MarketSharesCol3.markdown('* **This graph:** shows the marketshare of each energy sector in year '+str(year0) )
+    Row2Col3.markdown('* **This graph:** shows the marketshare of each energy sector in year '+str(year0) )
     InitialMarketSharesPlot = sns.catplot(data=UnpivotedInitialMarketSharesDataFrame, y='variable',x='value', kind='bar',hue='region', aspect=8/5)
     InitialMarketSharesPlot.set_axis_labels('Energy consuption EJ/yr', '')
-    MarketSharesCol3.pyplot(InitialMarketSharesPlot)
+    Row2Col3.pyplot(InitialMarketSharesPlot)
     
     
     
     
 
-with shocks:
+with Row3:
     
-    SchocksCol1, SchocksCol2, SchocksCol3 = st.columns(3)
+    Row3Col1, Row3Col2, Row3Col3, Row3Col4 = st.columns([2,1,1,2])
+    
+    
 
-    SchocksCol1.header('The shocks')
+    Row3Col1.header('The shocks')
     
     SchocksPlot = sns.relplot(data=dffp[dffp['region']==TheRegion], kind='line', x='year', y='Shocks'+TheSector, hue='scenario', height=5, aspect=8/5)
-    SchocksCol1.pyplot(SchocksPlot)
+    Row3Col1.pyplot(SchocksPlot)
 
-    SchocksCol2.text('Choose your portfolio')
+    Row3Col2.header('Choose your portfolio')
 
-    FaceValuesOfLoans1=[1000,100000,1000,2000,2000,2000,100,100,1000]
+
+    with Row3Col2:
+        Row3Col2Col1, Row3Col2Col2 = st.columns(2)
+    
+    FaceValuesOfLoans1=[0]*len(sectors)
+
+    for i in range(len(sectors)):
+        if i < 0.5*len(sectors):
+            FaceValuesOfLoans1[i] = Row3Col2Col1.slider(sectors[i], min_value=0, max_value=1000, value=1000, step=10)
+        else:
+            FaceValuesOfLoans1[i] = Row3Col2Col2.slider(sectors[i], min_value=0, max_value=1000, value=1000, step=10)
+    
     FaceValuesOfLoans2={'Sectors':sectors, 'Face Values of Loans':FaceValuesOfLoans1}
     FaceValuesOfLoans=pd.DataFrame(FaceValuesOfLoans2)
 
     #ChangeInDefaultProbMatrix
     ChangeInDefaultProbMatrix =ShocksMatrix.copy()
     ChangeInDefaultProbMatrix[ShocksSectorsColumns] = -EjDeltaRatio*Chi*ShocksMatrix[ShocksSectorsColumns]
+    ChangeInDefaultProbMatrix[ShocksSectorsColumns] = ChangeInDefaultProbMatrix[ShocksSectorsColumns].apply(lambda x: [y if y >= -InitProbDefault else -InitProbDefault for y in x])
 
     # Compute the change in values of loans. This should be modified since in our probability matrix we have probability changes of 40!, we did not take into account the fact that if the shock is very positive, then the lender will not return more than what we took.
     ChangeInValueOfLoans1=-np.dot(ChangeInDefaultProbMatrix[ShocksSectorsColumns].to_numpy(), FaceValuesOfLoans['Face Values of Loans'].to_numpy())*(1-RecoveryRate)
@@ -156,7 +172,28 @@ with shocks:
     ChangeInValueOfLoans['New value of loans']=ChangeInValueOfLoans['Change in value of loans']+FaceValuesOfLoans['Face Values of Loans'].sum()
 
     
-    SchocksCol3.header('Simulation for the value of a loan')
+    Row3Col4.header('Simulation for the value of a loan')
     
     LoanValueSimulation=sns.relplot(data=ChangeInValueOfLoans[ChangeInValueOfLoans['region']==TheRegion], kind='line', x='year', y='New value of loans', hue='scenario', col='region', height=5, aspect=8/5)
-    SchocksCol3.pyplot(LoanValueSimulation)
+    Row3Col3.pyplot(LoanValueSimulation)
+
+
+    ChangeInValueOfLoansMatrix=ChangeInDefaultProbMatrix.copy()
+    for i in range(len(sectors)):
+        ChangeInValueOfLoansMatrix[ShocksSectorsColumns[i]]=-ChangeInValueOfLoansMatrix[ShocksSectorsColumns[i]]*FaceValuesOfLoans['Face Values of Loans'][i]*(1-RecoveryRate)
+
+    NewValueOfLoansMatrix=pd.DataFrame()
+    NewValueOfLoansMatrix['scenario']=ChangeInValueOfLoansMatrix['scenario']
+    NewValueOfLoansMatrix['year']=ChangeInValueOfLoansMatrix['year']
+    NewValueOfLoansMatrix['region']=ChangeInValueOfLoansMatrix['region']
+    for i in range(len(sectors)):
+        NewValueOfLoansMatrix[NewValueOfLoanSectorsColumns[i]]=FaceValuesOfLoans['Face Values of Loans'][i]+ChangeInValueOfLoansMatrix[ShocksSectorsColumns[i]]
+
+    NewValueOfLoansMatrix['TotalNewValueLoan']=NewValueOfLoansMatrix[NewValueOfLoanSectorsColumns].sum(axis=1)
+
+    StackedNewValueOfLoansPlot = NewValueOfLoansMatrix[(NewValueOfLoansMatrix['region'] == TheRegion) & (NewValueOfLoansMatrix['scenario'] == TheScenario)][NewValueOfLoanSectorsColumns].plot.area()
+    StackedNewValueOfLoansPlot.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+    StackedNewValueOfLoansPlot.set_ylabel('Loan value')
+    StackedNewValueOfLoansPlot.set_xlabel('Year')
+    StackedNewValueOfLoansPlot.set_title(str(TheRegion)+' - '+str(TheScenario))
+    Row3Col4.pyplot(StackedNewValueOfLoansPlot.figure)
