@@ -20,7 +20,6 @@ loanvalue = st.container()
 
 @st.cache_data
 def get_data():
-    pyam.iiasa.set_config("swan", "5w6uwwL2L7eJyW")
     conn = pyam.iiasa.Connection()
     conn.connect('ngfs_phase_3')
 
