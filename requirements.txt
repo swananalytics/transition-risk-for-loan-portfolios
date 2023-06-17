@@ -1,7 +1,7 @@
-matplotlib==3.5.2
-numpy==1.23.0
+matplotlib
+numpy
 pandas
-pyam==0.2.1-alpha
-pyam_iamc==1.7.0
+pyam
+pyam_iamc
 seaborn
-streamlit==1.18.1
+streamlit
